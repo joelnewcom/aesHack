@@ -1,0 +1,138 @@
+//****************************************************************************/
+// MPC-project FS2016
+// Purpose: AES128 encryption / decryption
+// File:    aes128.c
+// Author:  Shay Gueron => expandKey
+//          Intel White Paper: Advanced Encryption Standard
+//          (inline assembler M. Thaler, ZHAW, 2/2016)
+// Author:  M. Thaler => encryptAES128, decryptAES128
+//          ZHAW, 2/2016
+//****************************************************************************/
+
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
+
+#include "aes128.h"
+
+//----------------------------------------------------------------------------
+// Shay Gueron, Intel White Paper: Advanced Encryption Standard
+// Key Expansion 128-Bit
+void expandKey(uint8_t* expandedKey, uint8_t *key) {
+    __asm__ __volatile__ ("   movl            $10,   240(%1)         ;" \
+                          "   movdqu          (%0),  %%xmm1          ;" \
+                          "   movdqa          %%xmm1, (%1)           ;" \
+                          "                                          ;" \
+                          "   aeskeygenassist $1, %%xmm1, %%xmm2     ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 16(%1)         ;" \
+                          "   aeskeygenassist $2, %%xmm1, %%xmm2     ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 32(%1)         ;" \
+                          "   aeskeygenassist $4, %%xmm1, %%xmm2     ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 48(%1)         ;" \
+                          "   aeskeygenassist $8, %%xmm1, %%xmm2     ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 64(%1)         ;" \
+                          "   aeskeygenassist $16, %%xmm1, %%xmm2    ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 80(%1)         ;" \
+                          "   aeskeygenassist $32, %%xmm1, %%xmm2    ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 96(%1)         ;" \
+                          "   aeskeygenassist $64, %%xmm1, %%xmm2    ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 112(%1)        ;" \
+                          "   aeskeygenassist $0x80, %%xmm1, %%xmm2  ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 128(%1)        ;" \
+                          "   aeskeygenassist $0x1b, %%xmm1, %%xmm2  ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 144(%1)        ;" \
+                          "   aeskeygenassist $0x36, %%xmm1, %%xmm2  ;" \
+                          "   call            prepare_roundkey_128   ;" \
+                          "   movdqa          %%xmm1, 160(%1)        ;" \
+                          "   ret                                    ;" \
+                          "                                          ;" \
+                          " prepare_roundkey_128:                    ;" \
+                          "   pshufd          $255,   %%xmm2,%%xmm2  ;" \
+                          "   movdqa          %%xmm1, %%xmm3         ;" \
+                          "   pslldq          $4,     %%xmm3         ;" \
+                          "   pxor            %%xmm3, %%xmm1         ;" \
+                          "   pslldq          $4,     %%xmm3         ;" \
+                          "   pxor            %%xmm3, %%xmm1         ;" \
+                          "   pslldq          $4,     %%xmm3         ;" \
+                          "   pxor            %%xmm3, %%xmm1         ;" \
+                          "   pxor            %%xmm2, %%xmm1         ;" \
+                          "   ret                                    ;" \
+                            :                                           \
+                            : "r"(key), "r"(expandedKey)                \
+                            : );
+}
+
+// ----------------------------------------------------------------------------
+// AES128 encrypt -------------------------------------------------------------
+
+void encryptAES128(const uint8_t* state, uint8_t *expandedKey) {
+    __asm__ __volatile__ ("     mov    %0,      %%r10        ;\n" \
+                          "     mov    %1,      %%r11        ;\n" \
+                          "     mov    $9,      %%r12        ;\n" \
+                          "     movups (%%r10), %%xmm0       ;\n" \
+                          "     movups (%%r11), %%xmm1       ;\n" \
+                          "     pxor    %%xmm1, %%xmm0       ;\n" \
+                          "                                  ;\n" \
+                          "label_01:                         ;\n" \
+                          "     add    $16,     %%r11        ;\n" \
+                          "     movups (%%r11), %%xmm1       ;\n" \
+                          "     aesenc %%xmm1,  %%xmm0       ;\n" \
+                          "     dec    %%r12                 ;\n" \
+                          "     jnz    label_01              ;\n" \
+                          "                                  ;\n" \
+                          "     add    $16,     %%r11        ;\n" \
+                          "     movups (%%r11), %%xmm1       ;\n" \
+                          "     aesenclast %%xmm1, %%xmm0    ;\n" \
+                          "                                  ;\n" \
+                          "label_02:                         ;\n" \
+                          "     movups %%xmm0, (%%r10)       ;\n" \
+                            :                                     \
+                            : "r"(state), "r"(expandedKey)        \
+                            : "%r10","%r11","%r12");
+}
+
+// ----------------------------------------------------------------------------
+// AES128 decrypt -------------------------------------------------------------
+
+void decryptAES128(const uint8_t* state, uint8_t *expandedKey) {
+// need aesmic, when using the same expanded key as for encryption
+
+    __asm__ __volatile__ ("     mov    %0,      %%r10        ;\n" \
+                          "     mov    %1,      %%r11        ;\n" \
+                          "     add    $160,    %%r11        ;\n" \
+                          "     mov    $9,      %%r12        ;\n" \
+                          "     movups (%%r10), %%xmm0       ;\n" \
+                          "     movups (%%r11), %%xmm1       ;\n" \
+                          "     pxor    %%xmm1, %%xmm0       ;\n" \
+                          "                                  ;\n" \
+                          "label_11:                         ;\n" \
+                          "     sub    $16,     %%r11        ;\n" \
+                          "     movups (%%r11), %%xmm1       ;\n" \
+                          "     aesimc %%xmm1,  %%xmm1       ;\n" \
+                          "     aesdec %%xmm1,  %%xmm0       ;\n" \
+                          "     dec    %%r12                 ;\n" \
+                          "     jnz    label_11              ;\n" \
+                          "                                  ;\n" \
+                          "     sub    $16,     %%r11        ;\n" \
+                          "     movups (%%r11), %%xmm1       ;\n" \
+                          "     aesdeclast %%xmm1, %%xmm0    ;\n" \
+                          "                                  ;\n" \
+                          "label_12:                         ;\n" \
+                          "     movups %%xmm0, (%%r10)       ;\n" \
+                            :                                     \
+                            : "r"(state), "r"(expandedKey)        \
+                            : "%r10","%r11","%r12");
+}
+
+// ----------------------------------------------------------------------------
+
+
