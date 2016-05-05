@@ -34,8 +34,8 @@ void BlockCopy(uint8_t* output, uint8_t* input);
 
 void BlockXor(uint8_t* buf,uint8_t* iv);
 
-double calculateEntropy(uint8_t* decrypted, int dlen);
+double calculateEntropy(uint8_t* decrypted, int dlen, int nTh);
 
-
+int countValidChars(uint8_t* decrypted, int dlen, int nTh);
 #endif
 

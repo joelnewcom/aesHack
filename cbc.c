@@ -100,7 +100,7 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
     // ...  
 
     dlen = KEYLEN*3;
-    printf("\n\ndlen: %i, CPUS (%i)\n\n", dlen, nTh);
+    
 
     int64_t i, j;
     uint8_t* decrypted = (uint8_t *) malloc(dlen * sizeof (uint8_t));
@@ -113,57 +113,91 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
 
     int64_t* keyAdd = (int64_t*) (&testKey);
 
+    //the valid text has 80% valid chars
+    int treshHoldForValidChars = (int)dlen - (dlen/5);
+    
+    printf("\n\ndlen: %i, CPUS: %i, treshHold: %i\n\n", dlen, nTh, treshHoldForValidChars);
     (*keyAdd) += keyOffset;
-    for (i = 0; i < nKeys; i++) {
-        /*if (i % 100000 == 0) {
-            printf("%i\n", i);
-        }*/
+    int give = 0;
+    int go = 1;
+    
+    #pragma omp parallel num_threads(nTh)
+    {
+        uint start, stop;
+        
+        #pragma omp critical
+        {
+            start = give;
+            give += nKeys/omp_get_num_threads();
+            stop = give;
 
-        /*if (0) {
-            printf("Testing key:\n");
-            for (j = 0; j < 16; j++) {
-                printf("%hho,", testKey[j]);
-            }
-            printf("\n");
-            //getchar();
-        }*/
-
-        decryptCBC(in, decrypted, dlen, testKey, iv, nTh);
-        double entropy = calculateEntropy(decrypted, dlen);
-
-        //printf("%f\n", entropy);
-       if (entropy <= 4.3) {
-            printf("KEY FOUND!!!Entropy:  (%f) Tested Key:\n", entropy);
-            /*for (j = 0; j < 16; j++) {
-                printf("%hho", testKey[j]);
-            }
-            printf("\n decrypted Text: ");
-            */
-            for (int k = 0; k < dlen; k++){
-                printf("%c", decrypted[k]);
-            }
-                return (*keyAdd);
-        } else {
-            //printf("key not found");
+            if(omp_get_thread_num() == omp_get_num_threads()-1)
+                stop = nKeys;
         }
+        
+        while (start < stop && go) {
+   
+            decryptCBC(in, decrypted, dlen, testKey, iv, nTh);
 
-        (*keyAdd)++;
+            int countedChars = countValidChars(decrypted, dlen, nTh);
+            //double entropy = calculateEntropy(decrypted, dlen, nTh);
+
+           //if (entropy <= 4.3) {
+
+            if (countedChars > treshHoldForValidChars){
+                //printf("KEY FOUND!!!Entropy:  (%f) Tested Key:\n", entropy);
+
+                /*printf("\n decrypted Text: ");
+
+                for (int k = 0; k < dlen; k++){
+                    printf("%c", decrypted[k]);
+                }*/
+
+                
+                    go = 0;
+
+            }
+            #pragma omp atomic
+            start++;
+            #pragma omp atomic
+            (*keyAdd)++;
+            
+        }
+    }    
+        
+    
+    if (!go){
+        return (*keyAdd);
+    }else{
+        return -1;
     }
-
-	return -1;
+    
 }
 // ----------------------------------------------------------------------------
 
-double calculateEntropy(uint8_t* decrypted, int dlen) {
+
+int countValidChars(uint8_t* decrypted, int dlen, int nTh){
+    int st =0;
+    {
+        for (int i = 0; i < dlen; i++) {
+            // A = 65, z = 122
+            st += ((decrypted[i] > 'A') & (decrypted[i] < 'z'));
+        }
+    }
+    
+    return st;
+}
+
+double calculateEntropy(uint8_t* decrypted, int dlen, int nTh) {
     int frequencies[256] = {0};
 
-#pragma omp parallel num_threads(4)
-   {
-#pragma omp for
-    for (int i = 0; i < dlen; i++) {
-        frequencies[decrypted[i]]++;
+    #pragma omp parallel num_threads(nTh)
+    {
+        #pragma omp for
+        for (int i = 0; i < dlen; i++) {
+            frequencies[decrypted[i]]++;
+        }
     }
-}
 
     double entropy = 0;
     for (int i = 0; i < 256; i++) {
