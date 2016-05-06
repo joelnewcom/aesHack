@@ -7,13 +7,8 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <math.h>
-#include <inttypes.h>
-#include <omp.h>
-
-
+//#include <stdlib.h>
+#include "string.h"
 #include "cbc.h"
 #include "aes128.h"
 
@@ -31,7 +26,7 @@ void encryptCBC(uint8_t *in, uint8_t *out, int dlen, uint8_t *key, uint8_t *iv) 
 
 
     uintptr_t i;
-    uint8_t remainders = dlen % KEYLEN; /* Remaining bytes in the last non-full block */
+    //uint8_t remainders = dlen % KEYLEN; /* Remaining bytes in the last non-full block */
 
     for (i = 0; i < dlen; i += KEYLEN) {
         BlockCopy(out, in);
@@ -44,11 +39,11 @@ void encryptCBC(uint8_t *in, uint8_t *out, int dlen, uint8_t *key, uint8_t *iv) 
         out += KEYLEN;
     }
 
-    if (remainders) {
+    /*if (remainders) {
         BlockCopy(out, in);
-        memset(out + remainders, 0, KEYLEN - remainders); /* add 0-padding */
+        memset(out + remainders, 0, KEYLEN - remainders); //add 0-padding 
         encryptAES128(out, expandedKey);
-    }
+    }*/
 }
 
 // decrypt, CBC mode ----------------------------------------------------------
@@ -60,7 +55,7 @@ void decryptCBC(uint8_t *in, uint8_t *out, int dlen, uint8_t *key, uint8_t *iv, 
     // ...
 
     uintptr_t i;
-    uint8_t remainders = dlen % KEYLEN; /* Remaining bytes in the last non-full block */
+    //uint8_t remainders = dlen % KEYLEN; /* Remaining bytes in the last non-full block */
 
 //#pragma omp parallel num_threads(nTh)
    {
@@ -82,13 +77,13 @@ void decryptCBC(uint8_t *in, uint8_t *out, int dlen, uint8_t *key, uint8_t *iv, 
         }
    }
 
-    if (remainders) {
-		printf("REMAINDERS :-(");
+    /*if (remainders) {
+	printf("REMAINDERS :-(");
         BlockCopy(out, in);
-        memset(out + remainders, 0, KEYLEN - remainders); /* add 0-padding */
+        memset(out + remainders, 0, KEYLEN - remainders); // add 0-padding
 
         decryptAES128(out, expandedKey);
-    }
+    }*/
 }
 
 
@@ -122,22 +117,17 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
     #pragma omp parallel num_threads(nTh) private(testKeyCopy, keyAdd, decrypted)
     {
         
-        //copy the key for each thread
+        //copy the key and decrpyted variable for each thread
         decrypted = malloc(dlen * sizeof (uint8_t));
-        
         testKeyCopy = malloc(16 * sizeof(uint8_t));
+        
         keyAdd = (int64_t*) memcpy(testKeyCopy, testKey, 16 * sizeof(uint8_t));
 
         (*keyAdd) += keyOffset;
         //critical code can only be executed by one thread at time 
         startIndexOfThread ++;
         (*keyAdd) += startIndexOfThread;
-        
-        //printf("Thread(%i) has startValue (%i) \n", omp_get_thread_num(), startIndexOfThread);
-        /*#pragma omp critical
-        {
-            
-        }*/
+
         int st;
         while ((*keyAdd) < nKeys && go) {
             decryptCBC(in, decrypted, dlen, testKeyCopy, iv, nTh);
@@ -149,18 +139,19 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
                 st += ((decrypted[i] > 'A') & (decrypted[i] < 'z'));
             }
             if (st > treshHoldForValidChars){
-                //printf("KEY FOUND!!!Entropy:  (%f) Tested Key:\n", entropy);
-                /*printf("\n Thread (%i) decrypted Text:", omp_get_thread_num());
-                for (int k = 0; k < dlen; k++){
+                //printf("\n Thread (%i) KeyAdd(%i) decrypted Text", omp_get_thread_num(), *keyAdd);
+                /*for (int k = 0; k < dlen; k++){
                     printf("%c", decrypted[k]);
                 }*/
                 
+                //copy the key into a public variable
                 memcpy(correctKey, keyAdd, sizeof(int64_t));
                 go = 0;
             }
 
             (*keyAdd) += nTh;
         }
+        //printf("\n Thread (%i) KeyAdd(%i)", omp_get_thread_num(), *keyAdd);
        
     }    
     
@@ -170,7 +161,7 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
 // ----------------------------------------------------------------------------
 
 
-int countValidChars(uint8_t* decrypted, int dlen, int nTh){
+/*int countValidChars(uint8_t* decrypted, int dlen, int nTh){
     int st =0;
     {
         for (int i = 0; i < dlen; i++) {
@@ -202,7 +193,7 @@ double calculateEntropy(uint8_t* decrypted, int dlen, int nTh) {
     }
 
     return entropy;
-}
+}*/
 
 void BlockCopy(uint8_t* output, uint8_t* input) {
     for (int i = 0; i < KEYLEN; ++i) {

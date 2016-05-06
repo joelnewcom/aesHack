@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     int keyOffset = 0;
     printf("\nstart crackin:\n");
     dt = omp_get_wtime();
-    int64_t crackedKey = attackCBC(inout, len, key, iv, 10000000, keyOffset, nTh);
+    int64_t crackedKey = attackCBC(inout, len, key, iv, 2147483647, keyOffset, nTh);
     dt = omp_get_wtime() - dt;
     //2147483647
     printf("\nkeys per second: %f\n", crackedKey/dt);
