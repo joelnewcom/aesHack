@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
     int64_t crackedKey = attackCBC(inout, len, key, iv, 10000000, keyOffset, nTh);
     dt = omp_get_wtime() - dt;
     //2147483647
-    printf("\nkeys per second: %f\n", 10000000 / dt);
+    printf("\nkeys per second: %f\n", crackedKey/dt);
     printf("\nCracked Elapsed: %2.2lf ms CPUs(%d)\n", 1000.0 * dt, nTh);
     
     printf("\nfound key: %" PRId64 "\n", crackedKey);
