@@ -4,8 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
-#include <inttypes.h>
-#include <limits.h>
+
 #include <omp.h>
 
 #include "cbc.h"
@@ -14,94 +13,66 @@
 //******************************************************************************
 
 int main(int argc, char *argv[]) {
-    int nTh = 1, len, alen;
-    double dt;
+    int     nTh = 1, len, alen;
+    double  dt;
     uint8_t *in, *out, *inout;
-    uint8_t key[16] = {
-        11, 2, 10, 0, 0, 0, 0, 0,
-        35, 123, 7, 3, 7, 1, 9, 34
-	};
-    uint8_t iv[16] = {0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01,
-        0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01};
+    uint8_t key[16] = { 0 };
+    uint8_t iv[16]  = {0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01,
+                       0x80, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x01};
 
     if (argc > 1)
         nTh = atoi(argv[1]);
 
     // encrypt / decrypt: function test -------------------------------------
     alen = 1;
-    uint8_t *str = (uint8_t *) "Das sichtbaren letzten beinahe doch. Indem gemacht zurücksehnte weil zu, ihn sich auf sie einem, wie wieder zugetraut wenn sich, die Helga niemals und erfreutem denn, aber hatte unbedeutende sie Weise. Er das daran erkannte als, das worden nehmen wieder und, bevor Tag der benommen klopfte.";
+    uint8_t *str = (uint8_t *)"Ubi DADA, ibi bene";
 
     len = getData(&in, str, &alen);
-    inout = (uint8_t *) malloc(len * sizeof (uint8_t));
-    out = (uint8_t *) malloc(len * sizeof (uint8_t));
+    inout = (uint8_t *)malloc(len*sizeof(uint8_t));
+    out   = (uint8_t *)malloc(len*sizeof(uint8_t));  
+  
     encryptCBC(in, inout, len, key, iv);
     decryptCBC(inout, out, len, key, iv, 1);
 
-    for (int i = 0; i < alen; i++) {
-        //printf("%hho = %hho\n", in[i], out[i]);
+    for (int i = 0; i < alen; i++)
         assert(out[i] == in[i]);
-    }
+ 
+    for (int i = 0; i < alen; i++)
+        printf("%c", out[i]);
+    printf("\n");
 
-    /*for (int i = 0; i < alen; i++)
-        printf("%hho", out[i]);
-    printf("\n");*/
-
-    free(in);
-    free(out);
-    free(inout);
+    free(in); free(out); free(inout);
 
     // encrypt / decrypt: speed test ----------------------------------------
 
     alen = 0;
     len = getData(&in, "dada.dat", &alen);
 
-    inout = (uint8_t *) malloc(len * sizeof (uint8_t));
-    out = (uint8_t *) malloc(len * sizeof (uint8_t));
+    inout = (uint8_t *)malloc(len*sizeof(uint8_t));
+    out   = (uint8_t *)malloc(len*sizeof(uint8_t));
 
     // "heat" CPU
     for (int i = 0; i < 10; i++) {
-        encryptCBC(in, inout, len, key, iv);
-        decryptCBC(inout, out, len, key, iv, nTh);
+        encryptCBC(in,    inout, len, key, iv);   
+        decryptCBC(inout, out,   len, key, iv, nTh);
     }
 
     // now measure time
-    encryptCBC(in, inout, len, key, iv);
+    encryptCBC(in,    inout, len, key, iv);
 
-    dt = omp_get_wtime();
+    dt = omp_get_wtime(); 
     decryptCBC(inout, out, len, key, iv, nTh);
     dt = omp_get_wtime() - dt;
 
-    printf("Elapsed: %2.2lf ms (%d)\n", 1000.0 * dt, nTh);
+    printf("Elapsed: %2.2lf ms (%d)\n", 1000.0*dt, nTh);
 
     for (int i = 0; i < alen; i++)
         assert(out[i] == in[i]);
     printf("\n");
 
-    free(in);
-    free(out);
-    free(inout);
+    free(in); free(out); free(inout);
 
-    //try our cracker:
-    alen = 0;
-   
-    len = getData(&in, "test.txt", &alen);
-    inout = (uint8_t *) malloc(len * sizeof (uint8_t));
-    out = (uint8_t *) malloc(len * sizeof (uint8_t));
+    //hackCBC(inout, out, dlen, key, iv, 1024, nTh);
+    //hackCBC(inout, out, dlen, key, iv, 1024, nTh);
 
-    encryptCBC(in, inout, len, key, iv);
-    int keyOffset = 100000;
-    dt = omp_get_wtime();
-    int64_t crackedKey = attackCBC(inout, len, key, iv, INT_MAX, keyOffset, nTh);
-    dt = omp_get_wtime() - dt;
-    printf("\nkeys per second: %f\n", (crackedKey-keyOffset)/dt);
-    printf("\nCracked Elapsed: %2.2lf ms CPUs(%d)\n", 1000.0 * dt, nTh);
-    printf("\nfound key: %" PRId64 "\n", crackedKey);
-
-    for (int i = 0; i < alen; i++)
-        printf("%c", out[i]);
-    printf("\n");
-
-    free(in);
-    free(out);
-    free(inout);
 }

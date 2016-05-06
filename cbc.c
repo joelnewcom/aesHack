@@ -62,9 +62,9 @@ void decryptCBC(uint8_t *in, uint8_t *out, int dlen, uint8_t *key, uint8_t *iv, 
     uintptr_t i;
     uint8_t remainders = dlen % KEYLEN; /* Remaining bytes in the last non-full block */
 
-#pragma omp parallel num_threads(nTh)
+//#pragma omp parallel num_threads(nTh)
    {
-#pragma omp for
+//#pragma omp for
            for (i = 0; i < dlen; i += KEYLEN) {
             uint8_t* tempIn = in + i;
             uint8_t* tempOut = out + i;
