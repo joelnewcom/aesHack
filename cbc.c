@@ -98,12 +98,11 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
     uint8_t expandedKey[176];
     // the expanded key must be passed to decryptAES128
     expandKey(expandedKey, key);
-    // ...  
 
     dlen = KEYLEN*3;
 
-    //the valid text has 80% valid chars
-    int treshHoldForValidChars = (int)dlen - (dlen/5);
+    //the valid text has 66% valid chars
+    int treshHoldForValidChars = (int)dlen - (dlen/2);
     
     //printf("\n\ndlen: %i, CPUS: %i, treshHold: %i\n\n", dlen, nTh, treshHoldForValidChars);
 
@@ -161,7 +160,6 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
         }
        
     }    
-        
     
    return *correctKey;
     
