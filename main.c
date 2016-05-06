@@ -64,8 +64,6 @@ int main(int argc, char *argv[]) {
     decryptCBC(inout, out, len, key, iv, nTh);
     dt = omp_get_wtime() - dt;
 
-    printf("Elapsed: %2.2lf ms (%d)\n", 1000.0*dt, nTh);
-
     for (int i = 0; i < alen; i++)
         assert(out[i] == in[i]);
     printf("\n");
