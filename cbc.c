@@ -130,11 +130,14 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
 
         (*keyAdd) += keyOffset;
         //critical code can only be executed by one thread at time 
-        #pragma omp critical
+        startIndexOfThread ++;
+        (*keyAdd) += startIndexOfThread;
+        
+        //printf("Thread(%i) has startValue (%i) \n", omp_get_thread_num(), startIndexOfThread);
+        /*#pragma omp critical
         {
-            startIndexOfThread += 1;
-            (*keyAdd) += startIndexOfThread;
-        }
+            
+        }*/
         int st;
         while ((*keyAdd) < nKeys && go) {
             decryptCBC(in, decrypted, dlen, testKeyCopy, iv, nTh);
