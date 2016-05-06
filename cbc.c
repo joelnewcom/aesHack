@@ -95,7 +95,7 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
 
     dlen = KEYLEN * 3;
 
-    //the valid text has 20% valid chars
+    //the valid text has at least 50% valid chars
     int treshHoldForValidChars = (int) dlen / 2;
 
     int go = 1;
@@ -120,7 +120,7 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
         keyAdd = (int64_t*) memcpy(testKeyCopy, testKey, 16 * sizeof (uint8_t));
 
         (*keyAdd) += keyOffset;
-        //critical code can only be executed by one thread at time 
+        
         startIndexOfThread++;
         (*keyAdd) += startIndexOfThread;
 
@@ -128,10 +128,9 @@ int64_t attackCBC(uint8_t *in, int dlen, uint8_t *key, uint8_t *iv, int64_t nKey
         while ((*keyAdd) < nKeys && go) {
             decryptCBC(in, decrypted, dlen, testKeyCopy, iv, 0);
 
-            //int countedChars = countValidChars(decrypted, dlen, nTh);
+            // Counting the valid chars of decrypted text
             st = 0;
             for (int i = 0; i < dlen; i++) {
-                // A = 65, z = 122
                 st += ((decrypted[i] > 'A') & (decrypted[i] < 'z'));
             }
             if (st > treshHoldForValidChars) {
